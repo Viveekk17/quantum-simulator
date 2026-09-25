@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MR Adaptive Suspension — Quantum-Inspired Simulator</title>
+<style>
+:root{
+  --lav:#9b8ad1; --lav-2:#c3b6ea; --lav-light:#efeaf9; --lav-dark:#5d4d99;
+  --bg:#ffffff; --ink:#111111; --muted:#5a5568;
+  --card:#faf9fd; --border:#e2ddf0;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --bg:#0e0d12; --ink:#f2f0f7; --muted:#b8b2cc; --card:#17151f; --border:#2a2636; --lav-light:#241f38; }
+}
+:root[data-theme="dark"]{ --bg:#0e0d12; --ink:#f2f0f7; --muted:#b8b2cc; --card:#17151f; --border:#2a2636; --lav-light:#241f38; }
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; min-height:100%;}
+header{padding:22px 20px 16px; border-bottom:1px solid var(--border); background:linear-gradient(180deg,var(--lav-light),transparent);}
+header .eyebrow{font-size:11px; letter-spacing:.12em; text-transform:uppercase; color:var(--lav-dark); font-weight:700;}
+header h1{margin:4px 0 4px; font-size:21px;}
+header p{margin:0; color:var(--muted); font-size:13px; max-width:680px;}
+.wrap{max-width:1020px; margin:0 auto; padding:18px 18px 50px;}
+.key{background:var(--lav-light); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:16px;}
+.key h2{margin:0 0 8px; font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--lav-dark); font-weight:800;}
+.key ul{margin:0; padding-left:18px; font-size:12.5px; color:var(--muted); line-height:1.6;}
+.key b{color:var(--ink);}
+.grid{display:grid; grid-template-columns:0.85fr 1.15fr; gap:16px;}
+@media(max-width:800px){.grid{grid-template-columns:1fr;}}
+.card{background:var(--card); border:1px solid var(--border); border-radius:14px; padding:18px; margin-bottom:16px;}
+.card h2{margin:0 0 12px; font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--lav-dark); text-transform:uppercase;}
+.slider-row{margin-bottom:15px;}
+.slider-row label{display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;}
+.slider-row .val{color:var(--lav-dark); font-weight:700;}
+input[type=range]{width:100%; -webkit-appearance:none; height:6px; border-radius:4px; background:var(--lav-light); outline:none;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--lav); cursor:pointer; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--lav-dark);}
+input[type=range]::-moz-range-thumb{width:18px; height:18px; border-radius:50%; background:var(--lav); cursor:pointer; border:2px solid var(--bg);}
+select{width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); font-size:13px;}
+button.reset{margin-top:6px; width:100%; padding:9px; border-radius:8px; border:1px solid var(--border); background:var(--bg); color:var(--ink); font-size:12px; cursor:pointer; font-weight:600;}
+button.reset:hover{background:var(--lav-light);}
+.notation-box{margin-top:14px; padding:12px; background:var(--lav-light); border-radius:10px; border:1px solid var(--border);}
+.notation{font-family:Georgia,'Cambria Math',serif; font-size:16px; text-align:center; color:var(--ink); margin-bottom:8px;}
+.nstats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; font-size:11px; text-align:center; color:var(--muted);}
+.nstats b{display:block; font-size:14px; color:var(--ink); font-weight:800;}
+.viz-title{font-size:12px; font-weight:700; margin:2px 0 4px;}
+.viz-caption{font-size:11.5px; color:var(--muted); line-height:1.5; margin:6px 0 16px;}
+canvas{display:block; width:100%; border-radius:10px; background:var(--lav-light); border:1px solid var(--border);}
+.measure-row{display:flex; gap:8px; align-items:center; margin:10px 0 4px;}
+.measure-btn{flex:0 0 auto; padding:8px 14px; border-radius:8px; border:none; background:var(--lav-dark); color:#fff; font-size:12px; font-weight:700; cursor:pointer;}
+.measure-btn:hover{opacity:.9;}
+.measure-flash{font-size:12.5px; font-weight:700; color:var(--lav-dark); min-height:16px;}
+.metrics{display:grid; grid-template-columns:repeat(4,1fr); gap:12px;}
+@media(max-width:700px){.metrics{grid-template-columns:repeat(2,1fr);}}
+.metric{background:var(--lav-light); border-radius:10px; padding:12px; border:1px solid var(--border);}
+.metric .m-label{font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--lav-dark); font-weight:700;}
+.metric .m-val{font-size:21px; font-weight:800; margin-top:2px;}
+.metric .m-sub{font-size:10.5px; color:var(--muted); margin-top:2px;}
+.state-bar{height:30px; border-radius:8px; overflow:hidden; display:flex; border:1px solid var(--border); margin:12px 0;}
+.state-bar .soft{background:var(--lav);}
+.state-bar .stiff{background:var(--ink); opacity:.85;}
+.state-bar div{display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:700; transition:width .3s ease;}
+.action{margin-top:8px; padding:12px 14px; border-radius:10px; background:var(--ink); color:var(--bg);}
+.action .a-label{font-size:10px; text-transform:uppercase; letter-spacing:.1em; opacity:.7;}
+.action .a-title{font-size:16px; font-weight:800; margin:2px 0 4px;}
+.action .a-desc{font-size:12px; opacity:.85;}
+.footnote{font-size:11px; color:var(--muted); margin-top:14px; line-height:1.5;}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Quantum-Inspired Automotive Simulator</div>
+  <h1>MR Adaptive Suspension — Damping State Simulator</h1>
+  <p>Models the MR (magnetorheological) suspension's damping decision as a two-level quantum-style state |ψ⟩ = α|soft⟩ + β|stiff⟩, where road conditions set the state, sensor noise causes decoherence, and pressing "Measure" collapses the state to one observed outcome — mirroring Unit 2's measurement postulate.</p>
+</header>
+
+<div class="wrap">
+  <div class="key">
+    <h2>How to read this simulator</h2>
+    <ul>
+      <li><b>State vector |ψ⟩</b> — a unit vector with amplitudes α (soft) and β (stiff), normalized so α² + β² = 1, exactly like a qubit's |0⟩/|1⟩ superposition.</li>
+      <li><b>Coherence</b> — how trustworthy the state estimate is. Sensor noise acts as an environment coupling that decoheres the state, shown as vector jitter.</li>
+      <li><b>Measurement</b> — the system doesn't run in a blended mode; each "shot" collapses to one outcome, sampled with probability |α|² or |β|², then the state re-forms.</li>
+    </ul>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Drive Conditions (Inputs)</h2>
+      <div class="slider-row"><label>Road roughness <span class="val" id="v-rough">45</span></label><input type="range" id="rough" min="0" max="100" value="45"></div>
+      <div class="slider-row"><label>Vehicle speed (km/h) <span class="val" id="v-speed">60</span></label><input type="range" id="speed" min="0" max="180" value="60"></div>
+      <div class="slider-row"><label>Payload / lateral load <span class="val" id="v-load">30</span></label><input type="range" id="load" min="0" max="100" value="30"></div>
+      <div class="slider-row"><label>Sensor noise / uncertainty <span class="val" id="v-noise">15</span></label><input type="range" id="noise" min="0" max="100" value="15"></div>
+      <div class="slider-row">
+        <label style="margin-bottom:6px;">Drive mode preset</label>
+        <select id="preset">
+          <option value="custom">Custom (manual sliders)</option>
+          <option value="comfort">Comfort — smooth highway</option>
+          <option value="sport">Sport — cornering, high load</option>
+          <option value="offroad">Off-road — rough terrain</option>
+          <option value="emergency">Emergency — pothole / evasive</option>
+        </select>
+      </div>
+      <button class="reset" id="resetBtn">Reset to defaults</button>
+
+      <div class="notation-box">
+        <div class="notation" id="notation">|ψ⟩ = 0.55|soft⟩ + 0.83|stiff⟩</div>
+        <div class="nstats">
+          <div>θ (mix angle)<b id="n-theta">56°</b></div>
+          <div>P(soft) = α²<b id="n-psoft">30%</b></div>
+          <div>P(stiff) = β²<b id="n-pstiff">70%</b></div>
+        </div>
+      </div>
+      <div class="footnote">Quantum-inspired: this models MR fluid response probabilistically. It is not a claim of literal microscopic superposition.</div>
+    </div>
+
+    <div>
+      <div class="card">
+        <div class="viz-title">① Road &amp; suspension response — live</div>
+        <canvas id="roadCanvas" height="150"></canvas>
+        <div class="viz-caption">The road surface (wave) is generated from roughness + speed. The car's vertical bounce amplitude shrinks as the state shifts toward |stiff⟩ — that damping change is the physical action the quantum-style controller is deciding on.</div>
+
+        <div class="viz-title">② State vector — Bloch-style diagram</div>
+        <canvas id="blochCanvas" height="210"></canvas>
+        <div class="viz-caption">The vector's angle θ shows the live mix of |soft⟩/|stiff⟩; the shaded wedge is P(stiff). Vector jitter = decoherence from sensor noise. Press Measure to collapse the state to one sampled outcome, like a single quantum measurement shot.</div>
+        <div class="measure-row">
+          <button class="measure-btn" id="measureBtn">⚡ Measure state</button>
+          <div class="measure-flash" id="flash"></div>
+        </div>
+        <canvas id="histCanvas" height="60"></canvas>
+        <div class="viz-caption" style="margin-bottom:0;">Histogram of collapsed outcomes so far — over many shots, the soft/stiff split should approach P(soft) and P(stiff) above (law of large numbers, same as repeated qubit measurement).</div>
+      </div>
+
+      <div class="card">
+        <h2>Simulated Output</h2>
+        <div class="metrics">
+          <div class="metric"><div class="m-label">Ride comfort</div><div class="m-val" id="m-comfort">—</div><div class="m-sub">Predicted vs current mode</div></div>
+          <div class="metric"><div class="m-label">Instability risk</div><div class="m-val" id="m-risk">—</div><div class="m-sub">Loss-of-control probability</div></div>
+          <div class="metric"><div class="m-label">Coherence</div><div class="m-val" id="m-coherence">—</div><div class="m-sub">1 − decoherence from noise</div></div>
+          <div class="metric"><div class="m-label">MR field</div><div class="m-val" id="m-field">—</div><div class="m-sub">Commanded current</div></div>
+        </div>
+        <div class="state-bar"><div class="soft" id="bar-soft">Soft</div><div class="stiff" id="bar-stiff">Stiff</div></div>
+        <div class="action">
+          <div class="a-label">Recommended Action</div>
+          <div class="a-title" id="a-title">MONITOR</div>
+          <div class="a-desc" id="a-desc">Maintain current MR duty cycle and sampling rate.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const rough = document.getElementById('rough');
+const speed = document.getElementById('speed');
+const load  = document.getElementById('load');
+const noise = document.getElementById('noise');
+const preset = document.getElementById('preset');
+
+const presets = {
+  comfort:  {rough:15, speed:100, load:20, noise:8},
+  sport:    {rough:35, speed:130, load:75, noise:20},
+  offroad:  {rough:85, speed:40,  load:55, noise:35},
+  emergency:{rough:70, speed:90,  load:60, noise:55}
+};
+function applyPreset(name){ if(name==='custom') return; const p=presets[name]; rough.value=p.rough; speed.value=p.speed; load.value=p.load; noise.value=p.noise; compute(); }
+preset.addEventListener('change', e => applyPreset(e.target.value));
+document.getElementById('resetBtn').addEventListener('click', () => { preset.value='custom'; rough.value=45; speed.value=60; load.value=30; noise.value=15; compute(); });
+[rough,speed,load,noise].forEach(el => el.addEventListener('input', () => { preset.value='custom'; compute(); }));
+
+function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+
+function compute(){
+  const R=+rough.value, S=+speed.value, L=+load.value, N=+noise.value;
+  document.getElementById('v-rough').textContent=R;
+  document.getElementById('v-speed').textContent=S;
+  document.getElementById('v-load').textContent=L;
+  document.getElementById('v-noise').textContent=N;
+
+  const stiffDrive = 0.35*(R/100) + 0.30*(S/180) + 0.35*(L/100);
+  const theta = stiffDrive * (Math.PI/2);
+  const alpha = Math.cos(theta), beta = Math.sin(theta);
+  const pSoft = alpha*alpha, pStiff = beta*beta;
+  const softPct = Math.round(pSoft*100), stiffPct = 100-softPct;
+
+  document.getElementById('bar-soft').style.width = softPct+'%';
+  document.getElementById('bar-stiff').style.width = stiffPct+'%';
+  document.getElementById('bar-soft').textContent = softPct>=12 ? ('Soft '+softPct+'%') : '';
+  document.getElementById('bar-stiff').textContent = stiffPct>=12 ? ('Stiff '+stiffPct+'%') : '';
+
+  document.getElementById('notation').textContent = '|ψ⟩ = '+alpha.toFixed(2)+'|soft⟩ + '+beta.toFixed(2)+'|stiff⟩';
+  document.getElementById('n-theta').textContent = Math.round(theta*180/Math.PI)+'°';
+  document.getElementById('n-psoft').textContent = softPct+'%';
+  document.getElementById('n-pstiff').textContent = stiffPct+'%';
+
+  const coherence = clamp(1-(N/100)*0.9,0,1);
+  document.getElementById('m-coherence').textContent = coherence.toFixed(3);
+  const comfort = clamp(60+pSoft*35-N*0.15,0,100);
+  document.getElementById('m-comfort').textContent = Math.round(comfort)+'%';
+  const risk = clamp(10+R*0.25+S*0.08+L*0.15+(1-coherence)*30,0,100);
+  document.getElementById('m-risk').textContent = Math.round(risk)+'%';
+  const field = Math.round(200+pStiff*1600);
+  document.getElementById('m-field').textContent = field+' mA';
+
+  const aTitle=document.getElementById('a-title'), aDesc=document.getElementById('a-desc');
+  if(risk>65){ aTitle.textContent='STIFFEN — HIGH RISK'; aDesc.textContent='Increase MR field to '+field+' mA immediately; raise sensor sampling rate to counter low coherence.'; }
+  else if(coherence<0.55){ aTitle.textContent='RECALIBRATE'; aDesc.textContent='Sensor noise is degrading the state estimate — recalibrate accelerometers before trusting the damping recommendation.'; }
+  else if(pStiff>0.6){ aTitle.textContent='STIFFEN'; aDesc.textContent='Bias MR duty cycle toward stiff mode for load/cornering stability.'; }
+  else if(pSoft>0.6){ aTitle.textContent='SOFTEN'; aDesc.textContent='Bias MR duty cycle toward soft mode for ride comfort on smooth road.'; }
+  else { aTitle.textContent='MONITOR'; aDesc.textContent='Maintain current MR duty cycle and sampling rate.'; }
+}
+compute();
+
+/* ---------------- Live animated visuals ---------------- */
+const anim = { theta:0.6, coherence:0.85, t:0, collapsing:false, collapseUntil:0, collapseTo:null };
+const hist = { soft:0, stiff:0 };
+
+function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+function fitCanvas(cv){
+  const dpr = window.devicePixelRatio||1, rect = cv.getBoundingClientRect();
+  cv.width = Math.max(1, rect.width*dpr); cv.height = Math.max(1, rect.height*dpr);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); return ctx;
+}
+const roadCv=document.getElementById('roadCanvas'), blochCv=document.getElementById('blochCanvas'), histCv=document.getElementById('histCanvas');
+let roadCtx=fitCanvas(roadCv), blochCtx=fitCanvas(blochCv), histCtx=fitCanvas(histCv);
+window.addEventListener('resize', ()=>{ roadCtx=fitCanvas(roadCv); blochCtx=fitCanvas(blochCv); histCtx=fitCanvas(histCv); });
+
+function drawRoad(ctx,w,h,t){
+  ctx.clearRect(0,0,w,h);
+  const R=+rough.value, S=+speed.value;
+  const roughAmp=4+(R/100)*22, roughFreq=0.02+(R/100)*0.05, speedFactor=0.5+(S/180)*2.5;
+  const groundY=h*0.74;
+
+  // sky gradient
+  const sky=ctx.createLinearGradient(0,0,0,groundY);
+  sky.addColorStop(0, css('--lav-light')); sky.addColorStop(1, 'transparent');
+  ctx.fillStyle=sky; ctx.fillRect(0,0,w,groundY);
+
+  ctx.beginPath(); ctx.moveTo(0,h);
+  for(let x=0;x<=w;x+=4){
+    const y=groundY+Math.sin(x*roughFreq+t*speedFactor)*roughAmp+Math.sin(x*roughFreq*2.3-t*speedFactor*1.6)*roughAmp*0.35;
+    ctx.lineTo(x,y);
+  }
+  ctx.lineTo(w,h); ctx.closePath();
+  const grd=ctx.createLinearGradient(0,groundY-20,0,h);
+  grd.addColorStop(0, css('--lav')+'55'); grd.addColorStop(1, css('--lav')+'15');
+  ctx.fillStyle=grd; ctx.fill();
+  ctx.strokeStyle=css('--lav-dark'); ctx.lineWidth=1.5; ctx.stroke();
+
+  const pStiff = anim.collapsing ? (anim.collapseTo==='stiff'?1:0) : Math.sin(anim.theta)*Math.sin(anim.theta);
+  const bodyAmp=roughAmp*(0.9-pStiff*0.65);
+  const carX=w*0.5;
+  const terrainYAtCar=groundY+Math.sin(carX*roughFreq+t*speedFactor)*roughAmp+Math.sin(carX*roughFreq*2.3-t*speedFactor*1.6)*roughAmp*0.35;
+  const bodyY=groundY-40+Math.sin(t*3.2*(1-pStiff*0.5))*bodyAmp*0.5;
+  const wheelY=terrainYAtCar-9;
+
+  // suspension spring (zigzag) compresses as gap shrinks
+  const gap=(wheelY-16)-(bodyY+14);
+  const coils=5; ctx.strokeStyle=css('--lav-dark'); ctx.lineWidth=2.5; ctx.beginPath();
+  ctx.moveTo(carX, bodyY+14);
+  for(let i=1;i<coils;i++){
+    const yy=bodyY+14+(gap*i/coils);
+    ctx.lineTo(carX+(i%2?10:-10), yy);
+  }
+  ctx.lineTo(carX, wheelY-16);
+  ctx.stroke();
+
+  // wheel with rotating spokes
+  ctx.beginPath(); ctx.arc(carX, wheelY, 11, 0, Math.PI*2);
+  ctx.fillStyle=css('--ink'); ctx.fill();
+  ctx.strokeStyle=css('--bg'); ctx.lineWidth=1;
+  const spin=t*speedFactor*4;
+  for(let i=0;i<4;i++){
+    const a=spin+i*(Math.PI/2);
+    ctx.beginPath(); ctx.moveTo(carX,wheelY); ctx.lineTo(carX+Math.cos(a)*9, wheelY+Math.sin(a)*9); ctx.stroke();
+  }
+
+  // car body with cabin
+  const bg=ctx.createLinearGradient(carX-40,bodyY-16,carX+40,bodyY+14);
+  bg.addColorStop(0, css('--lav-dark')); bg.addColorStop(1, css('--lav'));
+  ctx.fillStyle=bg;
+  ctx.beginPath(); ctx.roundRect(carX-42, bodyY-12, 84, 26, 8); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(carX-18, bodyY-24, 40, 16, 6); ctx.fill();
+
+  // noise jitter (sensor uncertainty)
+  const N=+noise.value; ctx.fillStyle=css('--ink')+'55';
+  for(let i=0;i<N/8;i++){
+    const nx=(Math.sin(t*7+i*13)*0.5+0.5)*w, ny=groundY-55-(Math.sin(t*11+i*7)*0.5+0.5)*30;
+    ctx.beginPath(); ctx.arc(nx,ny,1.6,0,Math.PI*2); ctx.fill();
+  }
+
+  ctx.font='10px -apple-system,sans-serif'; ctx.fillStyle=css('--muted');
+  ctx.fillText('damping bias: '+(pStiff>0.5?'stiff-leaning':'soft-leaning'), 8, 14);
+}
+
+function drawBloch(ctx,w,h,t){
+  ctx.clearRect(0,0,w,h);
+  const cx=w/2, cy=h/2, r=Math.min(w,h)/2-20;
+
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle=css('--lav'); ctx.lineWidth=1.5; ctx.stroke();
+  ctx.strokeStyle=css('--border');
+  ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
+
+  ctx.font='11px -apple-system,sans-serif'; ctx.fillStyle=css('--muted'); ctx.textAlign='center';
+  ctx.fillText('|soft⟩', cx, cy-r-6);
+  ctx.fillText('|stiff⟩', cx, cy+r+16);
+  ctx.textAlign='left';
+
+  const jitter=anim.collapsing?0:(1-anim.coherence)*0.12;
+  const liveTheta = anim.collapsing ? (anim.collapseTo==='stiff'?Math.PI/2:0) : anim.theta;
+  const drawTheta = liveTheta + Math.sin(t*9)*jitter;
+  const vx=cx+Math.sin(drawTheta)*r, vy=cy-Math.cos(drawTheta)*r;
+
+  // probability wedge
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+anim.theta); ctx.closePath();
+  ctx.fillStyle=css('--ink')+'1f'; ctx.fill();
+
+  // angle arc label
+  ctx.strokeStyle=css('--lav-dark'); ctx.lineWidth=1;
+  ctx.beginPath(); ctx.arc(cx,cy,26,-Math.PI/2,-Math.PI/2+anim.theta); ctx.stroke();
+  ctx.fillStyle=css('--lav-dark'); ctx.font='10px -apple-system,sans-serif';
+  ctx.fillText('θ', cx+ (Math.sin(anim.theta/2)*36), cy-(Math.cos(anim.theta/2)*36));
+
+  // state vector
+  ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(vx,vy);
+  ctx.strokeStyle=anim.collapsing?css('--lav-dark'):css('--lav-dark');
+  ctx.lineWidth=anim.collapsing?4:3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(vx,vy,anim.collapsing?8:6,0,Math.PI*2);
+  ctx.fillStyle=css('--lav-dark'); ctx.fill();
+
+  // coherence ring (bigger = less coherent)
+  ctx.beginPath(); ctx.arc(cx,cy,5+(1-anim.coherence)*10,0,Math.PI*2);
+  ctx.strokeStyle=css('--ink'); ctx.globalAlpha=0.5; ctx.lineWidth=1; ctx.stroke(); ctx.globalAlpha=1;
+}
+
+function drawHist(ctx,w,h){
+  ctx.clearRect(0,0,w,h);
+  const total=Math.max(1,hist.soft+hist.stiff);
+  const maxBar=w*0.42, midY=h/2, barH=14;
+  const softW=(hist.soft/total)*maxBar, stiffW=(hist.stiff/total)*maxBar;
+  ctx.font='10px -apple-system,sans-serif'; ctx.fillStyle=css('--muted');
+  ctx.fillText('soft: '+hist.soft, 6, midY-4);
+  ctx.fillStyle=css('--lav'); ctx.fillRect(52, midY-barH/2-9, Math.max(2,softW), barH);
+  ctx.fillStyle=css('--muted'); ctx.fillText('stiff: '+hist.stiff, 6, midY+22);
+  ctx.fillStyle=css('--ink'); ctx.fillRect(52, midY-barH/2+9, Math.max(2,stiffW), barH);
+}
+
+document.getElementById('measureBtn').addEventListener('click', ()=>{
+  const pStiff = Math.sin(anim.theta)*Math.sin(anim.theta);
+  const outcome = Math.random() < pStiff ? 'stiff' : 'soft';
+  anim.collapsing = true; anim.collapseTo = outcome; anim.collapseUntil = performance.now()+900;
+  hist[outcome]++;
+  const flash = document.getElementById('flash');
+  flash.textContent = 'Measured: '+outcome.toUpperCase()+'  (sampled with P='+ (outcome==='stiff'? Math.round(pStiff*100): Math.round((1-pStiff)*100)) +'%)';
+  setTimeout(()=>{ flash.textContent=''; }, 1800);
+});
+
+function animate(now){
+  anim.t += 0.016;
+  const R=+rough.value, S=+speed.value, L=+load.value, N=+noise.value;
+  const stiffDrive = 0.35*(R/100)+0.30*(S/180)+0.35*(L/100);
+  const targetTheta = stiffDrive*(Math.PI/2);
+  const targetCoherence = clamp(1-(N/100)*0.9,0,1);
+  anim.theta += (targetTheta-anim.theta)*0.06;
+  anim.coherence += (targetCoherence-anim.coherence)*0.08;
+
+  if(anim.collapsing && now > anim.collapseUntil){ anim.collapsing=false; anim.collapseTo=null; }
+
+  const rRect=roadCv.getBoundingClientRect(), bRect=blochCv.getBoundingClientRect(), hRect=histCv.getBoundingClientRect();
+  drawRoad(roadCtx, rRect.width, rRect.height, anim.t);
+  drawBloch(blochCtx, bRect.width, bRect.height, anim.t);
+  drawHist(histCtx, hRect.width, hRect.height);
+
+  requestAnimationFrame(animate);
+}
+requestAnimationFrame(animate);
+</script>
+</body>
+</html>
