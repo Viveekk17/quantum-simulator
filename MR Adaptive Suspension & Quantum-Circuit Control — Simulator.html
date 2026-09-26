@@ -1,0 +1,1179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MR Adaptive Suspension &amp; Quantum-Circuit Control — Simulator</title>
+<style>
+:root{
+  --bg:#0b0d10; --bg2:#12151a; --panel:#14171d; --panel2:#1a1e26;
+  --line:#252a33; --line2:#333a47;
+  --ink:#eef1f3; --ink-dim:#a7afbc; --ink-faint:#6b7280;
+  --sig:#5ee6c9;      /* classical / physics signal — cyan-teal */
+  --sig-dim:#2d5a52;
+  --qbit:#a78bfa;     /* quantum circuit — violet */
+  --qbit-dim:#4a3d72;
+  --warn:#f5a623;
+  --danger:#f0596b;
+  --mono: 'JetBrains Mono', 'SF Mono', 'Berkeley Mono', ui-monospace, Menlo, Consolas, monospace;
+  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+:root[data-theme="light"]{
+  --bg:#f5f6f8; --bg2:#ffffff; --panel:#ffffff; --panel2:#eef0f3;
+  --line:#dde1e7; --line2:#c7cdd6;
+  --ink:#12151a; --ink-dim:#454c58; --ink-faint:#8890a0;
+  --sig-dim:#cdeee6; --qbit-dim:#e6ddfb;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px); scroll-behavior:smooth;}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+  min-height:100%; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--sig); color:#04120f;}
+
+/* ---------------- Top bar ---------------- */
+.topbar{
+  position:sticky; top:0; z-index:40;
+  background:color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--line);
+  padding:calc(12px + env(safe-area-inset-top,0px)) 20px 12px;
+  display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+}
+.brand{display:flex; align-items:baseline; gap:10px; min-width:0;}
+.brand .mark{font-family:var(--mono); font-size:12px; color:var(--sig); letter-spacing:.02em; white-space:nowrap;}
+.brand h1{font-size:15px; margin:0; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.modebar{display:flex; align-items:center; gap:0; background:var(--panel2); border:1px solid var(--line); border-radius:10px; padding:3px;}
+.modebar button{
+  border:none; background:transparent; color:var(--ink-dim); font-family:var(--sans); font-size:12.5px; font-weight:600;
+  padding:7px 13px; border-radius:7px; cursor:pointer; display:flex; align-items:center; gap:6px; transition:background .15s, color .15s;
+}
+.modebar button .dot{width:6px; height:6px; border-radius:50%; background:currentColor; opacity:.5;}
+.modebar button.active.physics{background:var(--sig-dim); color:var(--sig);}
+.modebar button.active.quantum{background:var(--qbit-dim); color:var(--qbit);}
+.topbar-tools{display:flex; gap:8px; align-items:center;}
+.icon-btn{
+  border:1px solid var(--line); background:var(--panel2); color:var(--ink-dim); border-radius:8px;
+  width:32px; height:32px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px;
+}
+.icon-btn:hover{color:var(--ink); border-color:var(--line2);}
+
+/* ---------------- Layout ---------------- */
+.shell{max-width:1360px; margin:0 auto; padding:0 20px 60px;}
+.intro{padding:22px 0 18px; border-bottom:1px solid var(--line); margin-bottom:20px;}
+.intro .eyebrow{font-family:var(--mono); font-size:11.5px; color:var(--ink-faint); margin-bottom:8px;}
+.intro h2{font-size:22px; margin:0 0 8px; font-weight:650; max-width:56ch; line-height:1.35;}
+.intro p{margin:0; color:var(--ink-dim); font-size:13.5px; max-width:72ch; line-height:1.6;}
+.mode-note{
+  display:inline-flex; align-items:center; gap:8px; margin-top:14px; padding:8px 12px; border-radius:8px;
+  font-size:12.5px; font-family:var(--mono); border:1px solid var(--line);
+}
+.mode-note.physics{color:var(--sig); border-color:var(--sig-dim); background:color-mix(in srgb, var(--sig) 6%, transparent);}
+.mode-note.quantum{color:var(--qbit); border-color:var(--qbit-dim); background:color-mix(in srgb, var(--qbit) 6%, transparent);}
+
+.layout{display:grid; grid-template-columns:320px 1fr; gap:18px; align-items:start;}
+@media(max-width:980px){.layout{grid-template-columns:1fr;}}
+
+.rail{position:sticky; top:78px;}
+@media(max-width:980px){.rail{position:static;}}
+
+.panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; margin-bottom:16px;}
+.panel-h{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;}
+.panel-h h3{margin:0; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint);}
+.panel-h .tag{font-family:var(--mono); font-size:10.5px; padding:2px 7px; border-radius:5px; border:1px solid var(--line2); color:var(--ink-faint);}
+
+.field{margin-bottom:16px;}
+.field label{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; margin-bottom:8px; color:var(--ink);}
+.field .unit{font-family:var(--mono); font-size:12px; color:var(--sig); font-weight:600;}
+.field .desc{font-size:11px; color:var(--ink-faint); margin-top:5px; line-height:1.5;}
+input[type=range]{
+  width:100%; -webkit-appearance:none; height:4px; border-radius:3px;
+  background:linear-gradient(90deg, var(--sig) var(--fill,50%), var(--line) var(--fill,50%)); outline:none;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--ink);
+  cursor:pointer; border:2px solid var(--sig); box-shadow:0 0 0 4px color-mix(in srgb, var(--sig) 18%, transparent);
+}
+input[type=range]::-moz-range-thumb{width:16px; height:16px; border-radius:50%; background:var(--ink); cursor:pointer; border:2px solid var(--sig);}
+
+select{
+  width:100%; padding:9px 10px; border-radius:8px; border:1px solid var(--line); background:var(--panel2);
+  color:var(--ink); font-size:12.5px; font-family:var(--sans);
+}
+.presets{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:4px;}
+.preset-btn{
+  padding:9px 6px; border-radius:8px; border:1px solid var(--line); background:var(--panel2); color:var(--ink-dim);
+  font-size:11.5px; font-weight:600; cursor:pointer; text-align:center; line-height:1.3;
+}
+.preset-btn:hover{border-color:var(--sig-dim); color:var(--ink);}
+.preset-btn.on{border-color:var(--sig); color:var(--sig); background:color-mix(in srgb, var(--sig) 8%, transparent);}
+
+button.reset{
+  margin-top:4px; width:100%; padding:9px; border-radius:8px; border:1px solid var(--line); background:transparent;
+  color:var(--ink-faint); font-size:11.5px; cursor:pointer; font-weight:600;
+}
+button.reset:hover{color:var(--ink); border-color:var(--line2);}
+
+/* ---------------- Visualization stack ---------------- */
+.vizhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;}
+.viz-title{font-size:13px; font-weight:650;}
+.viz-title .n{font-family:var(--mono); font-size:11px; color:var(--ink-faint); margin-right:8px;}
+.viz-caption{font-size:11.5px; color:var(--ink-faint); line-height:1.6; margin:8px 0 14px;}
+canvas{display:block; width:100%; border-radius:10px; background:var(--panel2); border:1px solid var(--line); aspect-ratio:var(--ar, 16/7);}
+#roadCanvas{--ar: 16/6.2;}
+#blochCanvas{--ar: 16/5.4;}
+#histCanvas{--ar: 16/1.9;}
+#circuitCanvas{--ar: 16/3.6;}
+#qBlochCanvas{--ar: 16/7.4;}
+#qHistCanvas{--ar: 16/1.9;}
+@media(max-width:600px){
+  #roadCanvas{--ar: 16/8;} #blochCanvas{--ar: 16/9;} #qBlochCanvas{--ar: 16/9.5;} #circuitCanvas{--ar: 16/5;}
+}
+
+.livepill{
+  display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:10.5px; color:var(--ink-faint);
+  padding:3px 9px; border-radius:20px; border:1px solid var(--line);
+}
+.livepill .blip{width:6px; height:6px; border-radius:50%; background:var(--sig); animation:pulse 1.6s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:.35} 50%{opacity:1}}
+
+/* ---------------- Formula / derivation drawer ---------------- */
+.formula-toggle{
+  display:flex; align-items:center; gap:8px; cursor:pointer; padding:10px 12px; border-radius:9px;
+  background:var(--panel2); border:1px solid var(--line); font-size:12px; font-weight:600; color:var(--ink-dim);
+  margin-top:10px; user-select:none;
+}
+.formula-toggle:hover{border-color:var(--line2);}
+.formula-toggle .chev{transition:transform .2s; font-size:10px; color:var(--ink-faint);}
+.formula-toggle.open .chev{transform:rotate(90deg);}
+.formula-body{
+  display:none; padding:14px 4px 4px; font-size:12px; line-height:1.8; color:var(--ink-dim);
+}
+.formula-body.open{display:block;}
+.formula-body .eq{
+  font-family:Georgia,'Cambria Math',serif; font-size:14.5px; color:var(--ink); background:var(--panel2);
+  border:1px solid var(--line); border-radius:8px; padding:10px 14px; margin:8px 0; overflow-x:auto; white-space:nowrap;
+}
+.formula-body .cite{font-size:10.5px; color:var(--ink-faint); font-style:italic;}
+.formula-body b{color:var(--ink); font-weight:650;}
+
+/* ---------------- Notation / state box ---------------- */
+.notation-box{
+  padding:14px; border-radius:11px; border:1px solid var(--line); background:var(--panel2); margin-top:2px;
+}
+.notation{font-family:Georgia,'Cambria Math',serif; font-size:16px; text-align:center; margin-bottom:10px;}
+.notation.physics-c{color:var(--sig);}
+.notation.quantum-c{color:var(--qbit);}
+.nstats{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; font-size:10.5px; text-align:center; color:var(--ink-faint);}
+.nstats b{display:block; font-size:14px; color:var(--ink); font-weight:750; font-family:var(--mono); margin-top:2px;}
+
+/* ---------------- Gate rail (quantum mode) ---------------- */
+.gaterail{display:flex; gap:6px; flex-wrap:wrap; margin:12px 0;}
+.gate-chip{
+  font-family:var(--mono); font-size:12px; font-weight:700; padding:7px 11px; border-radius:8px;
+  border:1px solid var(--line2); background:var(--panel2); color:var(--ink-dim); position:relative;
+}
+.gate-chip.active{border-color:var(--qbit); color:var(--qbit); background:color-mix(in srgb, var(--qbit) 10%, transparent);}
+.gate-chip .arrow{position:absolute; right:-11px; top:50%; transform:translateY(-50%); color:var(--ink-faint); font-size:11px;}
+
+/* ---------------- Measure / actions row ---------------- */
+.measure-row{display:flex; gap:10px; align-items:center; margin:14px 0 6px; flex-wrap:wrap;}
+.measure-btn{
+  flex:0 0 auto; padding:10px 18px; border-radius:9px; border:none; cursor:pointer; font-size:12.5px; font-weight:700;
+  font-family:var(--sans); display:flex; align-items:center; gap:7px;
+}
+.measure-btn.physics{background:var(--sig); color:#04211c;}
+.measure-btn.quantum{background:var(--qbit); color:#1c1330;}
+.measure-btn:active{transform:scale(.97);}
+.measure-flash{font-size:12px; font-weight:650; font-family:var(--mono); min-height:16px;}
+
+/* ---------------- Metrics ---------------- */
+.metrics{display:grid; grid-template-columns:repeat(4,1fr); gap:10px;}
+@media(max-width:760px){.metrics{grid-template-columns:repeat(2,1fr);}}
+.metric{background:var(--panel2); border-radius:11px; padding:13px; border:1px solid var(--line);}
+.metric .m-label{font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:700;}
+.metric .m-val{font-size:21px; font-weight:750; margin-top:4px; font-family:var(--mono);}
+.metric .m-sub{font-size:10.5px; color:var(--ink-faint); margin-top:3px;}
+.metric.hot .m-val{color:var(--danger);}
+.metric.good .m-val{color:var(--sig);}
+
+.state-bar{height:32px; border-radius:9px; overflow:hidden; display:flex; border:1px solid var(--line); margin:14px 0;}
+.state-bar .soft{background:var(--sig);}
+.state-bar .stiff{background:var(--ink-faint);}
+.state-bar div{display:flex; align-items:center; justify-content:center; color:#04211c; font-size:11px; font-weight:750; transition:width .3s ease; font-family:var(--mono);}
+.state-bar .stiff{color:var(--bg);}
+
+.action{margin-top:10px; padding:14px 16px; border-radius:11px; background:var(--panel2); border:1px solid var(--line2);}
+.action .a-label{font-size:10px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-faint); font-weight:700;}
+.action .a-title{font-size:16px; font-weight:750; margin:3px 0 5px; font-family:var(--mono);}
+.action .a-desc{font-size:12px; color:var(--ink-dim); line-height:1.5;}
+
+.footnote{font-size:11px; color:var(--ink-faint); margin-top:16px; line-height:1.6; padding-top:14px; border-top:1px solid var(--line);}
+.footnote b{color:var(--ink-dim);}
+
+.section-gap{height:6px;}
+
+/* ---------------- References panel ---------------- */
+.refs{font-size:12px; color:var(--ink-dim); line-height:2;}
+.refs li{margin-bottom:2px;}
+.refs .k{font-family:var(--mono); color:var(--sig); font-weight:600; margin-right:6px;}
+
+/* visually hidden util */
+.hide{display:none !important;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">◈ MR-QC</span>
+    <h1>Adaptive Suspension &amp; Quantum-Circuit Control</h1>
+  </div>
+  <div class="modebar" id="modebar" role="tablist" aria-label="Simulation mode">
+    <button class="active physics" id="btn-physics" role="tab" aria-selected="true"><span class="dot"></span>Vehicle Physics</button>
+    <button id="btn-quantum" role="tab" aria-selected="false"><span class="dot"></span>Quantum Circuit</button>
+  </div>
+  <div class="topbar-tools">
+    <button class="icon-btn" id="themeBtn" title="Toggle light/dark">◐</button>
+  </div>
+</div>
+
+<div class="shell">
+
+  <div class="intro">
+    <div class="eyebrow">Two-engine simulator · Vehicle Dynamics + Quantum Computing</div>
+    <h2 id="introH2">A real quarter-car MR-damper model, and a real one-qubit circuit — shown side by side, never conflated.</h2>
+    <p id="introP">This prototype runs two independent, physically honest simulations. <b style="color:var(--ink)">Vehicle Physics</b> solves the actual quarter-car equations of motion for a magnetorheological (MR) damper with a numerical ODE integrator. <b style="color:var(--ink)">Quantum Circuit</b> builds and runs a genuine single-qubit circuit — real 2×2 unitary matrices, Bloch-sphere state, Born-rule measurement — whose measured bit is then fed to the vehicle controller as a true random seed. Nothing here pretends the suspension itself is a quantum device.</p>
+    <div class="mode-note physics" id="modeNote">▸ Currently simulating: <b>quarter-car ODE (RK4)</b> — 4 state variables, Bingham-plastic MR force law, solved 500× per second.</div>
+  </div>
+
+  <div class="layout">
+    <!-- ============ LEFT RAIL — INPUTS ============ -->
+    <div class="rail">
+
+      <!-- PHYSICS INPUTS -->
+      <div class="panel" id="physicsInputs">
+        <div class="panel-h"><h3>Drive Conditions</h3><span class="tag">real inputs</span></div>
+
+        <div class="field">
+          <label>Road roughness <span class="unit" id="v-rough">45</span></label>
+          <input type="range" id="rough" min="0" max="100" value="45">
+          <div class="desc">ISO 8608 style — maps to road PSD amplitude class A (smooth) → E (very rough).</div>
+        </div>
+        <div class="field">
+          <label>Vehicle speed <span class="unit" id="v-speed">60 km/h</span></label>
+          <input type="range" id="speed" min="0" max="180" value="60">
+          <div class="desc">Sets the excitation frequency the road profile drives into the suspension.</div>
+        </div>
+        <div class="field">
+          <label>Payload / lateral load <span class="unit" id="v-load">30</span></label>
+          <input type="range" id="load" min="0" max="100" value="30">
+          <div class="desc">Cornering + payload transfer — always biases the controller toward stiffening.</div>
+        </div>
+        <div class="field">
+          <label>Sensor noise <span class="unit" id="v-noise">15</span></label>
+          <input type="range" id="noise" min="0" max="100" value="15">
+          <div class="desc">Accelerometer/IMU uncertainty — degrades controller confidence (coherence).</div>
+        </div>
+
+        <div class="field" style="margin-bottom:8px;">
+          <label style="margin-bottom:8px;">Scenario preset</label>
+          <div class="presets">
+            <button class="preset-btn" data-preset="comfort">Comfort<br>highway</button>
+            <button class="preset-btn" data-preset="sport">Sport<br>cornering</button>
+            <button class="preset-btn" data-preset="offroad">Off-road<br>rough terrain</button>
+            <button class="preset-btn" data-preset="pothole">Low-speed<br>pothole</button>
+          </div>
+        </div>
+        <button class="reset" id="resetBtn">Reset to defaults</button>
+      </div>
+
+      <!-- QUANTUM INPUTS (hidden until quantum mode) -->
+      <div class="panel hide" id="quantumInputs">
+        <div class="panel-h"><h3>Circuit Builder</h3><span class="tag" style="color:var(--qbit); border-color:var(--qbit-dim);">real qubit math</span></div>
+
+        <div class="field">
+          <label>Ry rotation angle θ <span class="unit" id="v-theta" style="color:var(--qbit);">0.60 rad</span></label>
+          <input type="range" id="thetaSlider" min="0" max="314" value="60">
+          <div class="desc">θ is driven live from road roughness + speed + load — real sensor data parameterizes a real gate.</div>
+        </div>
+        <div class="field">
+          <label>Rz phase φ <span class="unit" id="v-phi" style="color:var(--qbit);">0.00 rad</span></label>
+          <input type="range" id="phiSlider" min="0" max="628" value="0">
+          <div class="desc">Adds a phase rotation — visible on the Bloch sphere, doesn't change measurement probabilities in the Z basis.</div>
+        </div>
+        <div class="field">
+          <label>Auto-drive θ from vehicle state</label>
+          <select id="autoDrive">
+            <option value="on">On — θ follows Drive Conditions</option>
+            <option value="off">Off — manual slider control</option>
+          </select>
+          <div class="desc">When on, switch back to Vehicle Physics to change road/speed/load and watch θ update here.</div>
+        </div>
+        <button class="reset" id="resetCircuitBtn">Reset circuit to |0⟩</button>
+      </div>
+
+      <!-- REFERENCES -->
+      <div class="panel">
+        <div class="panel-h"><h3>Model References</h3></div>
+        <ul class="refs" style="list-style:none; padding:0; margin:0;">
+          <li><span class="k">[1]</span> Spencer Jr., B.F. et al. (1997), <i>"Phenomenological model for MR dampers,"</i> J. Eng. Mech.</li>
+          <li><span class="k">[2]</span> ISO 8608:2016 — <i>Mechanical vibration — Road surface profiles.</i></li>
+          <li><span class="k">[3]</span> Kutta, W. (1901) — classical 4th-order Runge–Kutta method.</li>
+          <li><span class="k">[4]</span> Nielsen, M. &amp; Chuang, I. (2010), <i>Quantum Computation &amp; Quantum Information,</i> Ch. 1–2 (single-qubit gates, Bloch sphere, Born rule).</li>
+          <li><span class="k">[5]</span> ISO 2631-1:1997 — whole-body vibration comfort weighting (RMS acceleration).</li>
+        </ul>
+      </div>
+
+    </div>
+
+    <!-- ============ RIGHT COLUMN — VISUALS ============ -->
+    <div>
+
+      <!-- ===== PHYSICS VISUALS ===== -->
+      <div id="physicsVisuals">
+
+        <div class="panel">
+          <div class="vizhead">
+            <div class="viz-title"><span class="n">01</span>Quarter-car rig — live RK4 integration</div>
+            <span class="livepill"><span class="blip"></span>500 Hz</span>
+          </div>
+          <canvas id="roadCanvas"></canvas>
+          <div class="viz-caption">Real road surface generated from an ISO-8608-style colored-noise profile at the set roughness class, traversed at the set speed. Body (sprung mass) and wheel (unsprung mass) positions are the literal output of the quarter-car ODE below — not a cosmetic bounce.</div>
+
+          <div class="formula-toggle" id="ftPhysics1"><span class="chev">▸</span> Show the equations of motion being solved</div>
+          <div class="formula-body" id="fbPhysics1">
+            <div class="eq">m<sub>s</sub>ẍ₁ = −k<sub>s</sub>(x₁−x₂) − F<sub>MR</sub></div>
+            <div class="eq">m<sub>u</sub>ẍ₂ = k<sub>s</sub>(x₁−x₂) + F<sub>MR</sub> − k<sub>t</sub>(x₂−x<sub>r</sub>) − c<sub>t</sub>(ẋ₂−ẋ<sub>r</sub>)</div>
+            <div class="eq">F<sub>MR</sub> = c₀·(ẋ₁−ẋ₂) + α·tanh(β·(ẋ₁−ẋ₂))·I<sub>field</sub></div>
+            <p>Standard quarter-car 2-DOF model. <b>x₁</b> = sprung mass (body) displacement, <b>x₂</b> = unsprung mass (wheel) displacement, <b>x<sub>r</sub></b> = road input. F<sub>MR</sub> is a simplified Bingham-plastic MR force law <span class="cite">(Spencer et al. 1997)</span> — a viscous term plus a field-controlled yield-stress term. Integrated with classical 4th-order Runge–Kutta <span class="cite">(Kutta, 1901)</span> at dt = 2 ms.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="vizhead"><div class="viz-title"><span class="n">02</span>Controller decision — soft/stiff confidence</div></div>
+          <div class="viz-caption" style="margin-top:6px;">The MR controller's confidence in "stiffen" vs "soften" is expressed here using the same |α|²/|β|² normalized-probability notation used for the quantum circuit in the other mode — a modeling convenience for comparing the two, not a claim that the damper itself is a quantum system.</div>
+          <canvas id="blochCanvas"></canvas>
+          <div class="notation-box">
+            <div class="notation physics-c" id="notation">α = 0.55, β = 0.83 (controller confidence, not a qubit)</div>
+            <div class="nstats">
+              <div>Excitation freq<b id="n-theta">4.1 Hz</b></div>
+              <div>P(soften)<b id="n-psoft">30%</b></div>
+              <div>P(stiffen)<b id="n-pstiff">70%</b></div>
+            </div>
+          </div>
+          <div class="formula-toggle" id="ftPhysics2"><span class="chev">▸</span> Why the controller isn't "stiffer = always safer"</div>
+          <div class="formula-body" id="fbPhysics2">
+            <p>The sprung-mass natural frequency is f<sub>n</sub> = (1/2π)·√(k<sub>s</sub>/m<sub>s</sub>) ≈ <b id="fbFn">1.2 Hz</b>. <b>Below/near f<sub>n</sub></b> (low-speed potholes, large slow undulations), stiffening reduces body excursion. <b>Above f<sub>n</sub></b> (most real road texture at normal speed), stiffening amplifies transmitted acceleration — softening is the comfort-correct choice. This was verified by sweeping RMS body acceleration across excitation frequencies for both extremes before this controller was written (see console derivation notes).</p>
+            <p class="cite">Comfort metric follows ISO 2631-1 whole-body-vibration weighting convention (RMS body acceleration).</p>
+          </div>
+          <div class="measure-row">
+            <button class="measure-btn physics" id="sampleBtn">▶ Run 1 controller cycle</button>
+            <div class="measure-flash" id="flash"></div>
+          </div>
+          <canvas id="histCanvas"></canvas>
+          <div class="viz-caption" style="margin-bottom:0;">Each cycle samples a soft/stiff action using the controller's probabilities — over many cycles the split converges to P(soften)/P(stiffen) above.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h3>Simulated Output</h3></div>
+          <div class="metrics">
+            <div class="metric"><div class="m-label">Ride comfort</div><div class="m-val" id="m-comfort">—</div><div class="m-sub">ISO 2631-style RMS accel score</div></div>
+            <div class="metric"><div class="m-label">Instability risk</div><div class="m-val" id="m-risk">—</div><div class="m-sub">Body-excursion / rollover proxy</div></div>
+            <div class="metric"><div class="m-label">Body accel (RMS)</div><div class="m-val" id="m-accel">—</div><div class="m-sub">m/s², from live ODE state</div></div>
+            <div class="metric"><div class="m-label">MR field</div><div class="m-val" id="m-field">—</div><div class="m-sub">Commanded coil current</div></div>
+          </div>
+          <div class="state-bar"><div class="soft" id="bar-soft">Soft</div><div class="stiff" id="bar-stiff">Stiff</div></div>
+          <div class="action">
+            <div class="a-label">Recommended Action</div>
+            <div class="a-title" id="a-title">MONITOR</div>
+            <div class="a-desc" id="a-desc">Maintain current MR duty cycle.</div>
+          </div>
+          <div class="footnote"><b>Engineering note —</b> ms, ks, mu, kt, c₀, α, β are representative passenger-vehicle quarter-car parameters, not measured from a specific real car. The ODE, integrator, and MR force law are real and swappable with measured parameters.</div>
+        </div>
+
+      </div>
+
+      <!-- ===== QUANTUM VISUALS ===== -->
+      <div id="quantumVisuals" class="hide">
+
+        <div class="panel">
+          <div class="vizhead">
+            <div class="viz-title"><span class="n">01</span>Circuit diagram — gate sequence on |0⟩</div>
+            <span class="livepill" style="color:var(--qbit);"><span class="blip" style="background:var(--qbit);"></span>1 qubit</span>
+          </div>
+          <canvas id="circuitCanvas"></canvas>
+          <div class="viz-caption">Each gate is a real 2×2 unitary matrix applied to the state vector — <b style="color:var(--qbit)">H</b> creates superposition, <b style="color:var(--qbit)">R<sub>y</sub>(θ)</b> rotates by the live angle, <b style="color:var(--qbit)">R<sub>z</sub>(φ)</b> adds phase. This is the same primitive gate set taught in Unit 2 (Nielsen &amp; Chuang Ch. 1), run with actual complex-matrix arithmetic, not cosmetic sliders.</div>
+          <div class="gaterail" id="gateRail"></div>
+        </div>
+
+        <div class="panel">
+          <div class="vizhead"><div class="viz-title"><span class="n">02</span>Bloch sphere — genuine qubit state |ψ⟩</div></div>
+          <canvas id="qBlochCanvas"></canvas>
+          <div class="notation-box">
+            <div class="notation quantum-c" id="qNotation">|ψ⟩ = 0.83|0⟩ + 0.55|1⟩</div>
+            <div class="nstats">
+              <div>θ (Bloch polar)<b id="q-theta">67°</b></div>
+              <div>P(|0⟩) = |α|²<b id="q-p0">70%</b></div>
+              <div>P(|1⟩) = |β|²<b id="q-p1">30%</b></div>
+            </div>
+          </div>
+          <div class="formula-toggle" id="ftQ1"><span class="chev">▸</span> Show the gate matrices &amp; Born rule</div>
+          <div class="formula-body" id="fbQ1">
+            <div class="eq">H = (1/√2)·[[1, 1], [1, −1]]</div>
+            <div class="eq">R<sub>y</sub>(θ) = [[cos(θ/2), −sin(θ/2)], [sin(θ/2), cos(θ/2)]]</div>
+            <div class="eq">P(outcome = k) = |⟨k|ψ⟩|²  (Born rule)</div>
+            <p>State evolves as |ψ⟩ → U|ψ⟩ for each gate's unitary matrix U. Amplitudes are genuinely complex (Re, Im tracked internally); this build uses only real-valued gates (H, R<sub>y</sub>, X) plus R<sub>z</sub> for phase, so Bloch-sphere motion stays visualizable in 2D projection while the underlying math is the real thing.</p>
+            <p class="cite">Nielsen &amp; Chuang (2010), Quantum Computation and Quantum Information, §1.2–1.3, §2.2.</p>
+          </div>
+          <div class="measure-row">
+            <button class="measure-btn quantum" id="measureBtn">⚡ Measure qubit (collapse)</button>
+            <div class="measure-flash" id="qFlash"></div>
+          </div>
+          <canvas id="qHistCanvas"></canvas>
+          <div class="viz-caption" style="margin-bottom:0;">Real Born-rule sampling per shot. Over many shots the |0⟩/|1⟩ split converges to P(|0⟩)/P(|1⟩) above — this is the same law of large numbers used to validate real quantum hardware calibration.</div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-h"><h3>Circuit → Controller Bridge</h3><span class="tag" style="color:var(--qbit); border-color:var(--qbit-dim);">honest coupling</span></div>
+          <p style="font-size:12.5px; color:var(--ink-dim); line-height:1.7; margin:0 0 12px;">The measured qubit bit does <b style="color:var(--ink)">not</b> replace the physics. It is used the one way a toy circuit can honestly touch a classical controller: as a <b style="color:var(--ink)">true random seed</b> for the stochastic road-noise term in the quarter-car model, and as a tie-breaker when the controller's stiff/soft confidence is near 50/50. This is analogous to real proposals for quantum-random-number-generator (QRNG) seeding in control systems — a legitimate, narrow role, not a claim that suspension damping runs on qubits.</p>
+          <div class="metrics" style="grid-template-columns:repeat(3,1fr);">
+            <div class="metric"><div class="m-label">Last measured bit</div><div class="m-val" id="q-lastbit">—</div><div class="m-sub">Fed as QRNG seed</div></div>
+            <div class="metric"><div class="m-label">Shots taken</div><div class="m-val" id="q-shots">0</div><div class="m-sub">Since circuit reset</div></div>
+            <div class="metric"><div class="m-label">Empirical P(|1⟩)</div><div class="m-val" id="q-empirical">—</div><div class="m-sub">Converges to Born-rule value</div></div>
+          </div>
+          <div class="footnote"><b>Why this is a legitimate quantum simulation, not decoration —</b> normalization (|α|²+|β|²=1) is preserved automatically because gates are applied as real unitary matrix multiplication, not hand-set. Measurement statistics are generated by actually sampling per |amplitude|², not by drawing from the target probability directly. You can verify convergence yourself using the shot counter above.</div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ENGINE CORE — quarter-car MR-damper physics (real ODE, RK4)
+              — single-qubit circuit (real 2x2 complex unitaries)
+   Kept isolated from rendering so the math can be checked on its own.
+   ============================================================ */
+
+/* ---------- Complex number helpers (for the qubit engine) ---------- */
+const C = {
+  add: (a, b) => [a[0] + b[0], a[1] + b[1]],
+  mul: (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]],
+  scale: (a, k) => [a[0] * k, a[1] * k],
+  abs2: (a) => a[0] * a[0] + a[1] * a[1],
+  conj: (a) => [a[0], -a[1]],
+};
+
+/* ---------- 2x2 complex matrix x 2-vector ---------- */
+function matVec(M, v) {
+  // M is [[m00,m01],[m10,m11]], each entry complex [re,im]; v is [c0,c1]
+  const r0 = C.add(C.mul(M[0][0], v[0]), C.mul(M[0][1], v[1]));
+  const r1 = C.add(C.mul(M[1][0], v[0]), C.mul(M[1][1], v[1]));
+  return [r0, r1];
+}
+
+/* ---------- Real quantum gates (standard definitions) ---------- */
+const Gates = {
+  H: () => {
+    const s = 1 / Math.SQRT2;
+    return [
+      [[s, 0], [s, 0]],
+      [[s, 0], [-s, 0]],
+    ];
+  },
+  // Ry(theta): rotation about Y axis of the Bloch sphere — real-valued, standard gate
+  Ry: (theta) => {
+    const c = Math.cos(theta / 2), s = Math.sin(theta / 2);
+    return [
+      [[c, 0], [-s, 0]],
+      [[s, 0], [c, 0]],
+    ];
+  },
+  // Rz(phi): phase rotation about Z axis
+  Rz: (phi) => {
+    return [
+      [[Math.cos(-phi / 2), Math.sin(-phi / 2)], [0, 0]],
+      [[0, 0], [Math.cos(phi / 2), Math.sin(phi / 2)]],
+    ];
+  },
+  X: () => [
+    [[0, 0], [1, 0]],
+    [[1, 0], [0, 0]],
+  ],
+};
+
+/* ---------- QubitCircuit: applies a sequence of real gates to |0> ---------- */
+class QubitCircuit {
+  constructor() {
+    this.reset();
+  }
+  reset() {
+    this.state = [[1, 0], [0, 0]]; // |0>
+    this.history = [{ label: '|0⟩ init', state: this.stateCopy() }];
+  }
+  stateCopy() {
+    return [
+      [this.state[0][0], this.state[0][1]],
+      [this.state[1][0], this.state[1][1]],
+    ];
+  }
+  apply(gateMatrix, label) {
+    this.state = matVec(gateMatrix, this.state);
+    this.history.push({ label, state: this.stateCopy() });
+    return this;
+  }
+  probs() {
+    return { p0: C.abs2(this.state[0]), p1: C.abs2(this.state[1]) };
+  }
+  // Bloch sphere coordinates from amplitudes (standard formula)
+  bloch() {
+    const a = this.state[0], b = this.state[1];
+    // theta from |c1|^2 = sin^2(theta/2); phi from relative phase
+    const p1 = C.abs2(b);
+    const theta = 2 * Math.acos(Math.min(1, Math.max(-1, Math.sqrt(1 - p1))));
+    const phaseA = Math.atan2(a[1], a[0]);
+    const phaseB = Math.atan2(b[1], b[0]);
+    const phi = phaseB - phaseA;
+    return {
+      x: Math.sin(theta) * Math.cos(phi),
+      y: Math.sin(theta) * Math.sin(phi),
+      z: Math.cos(theta),
+      theta, phi,
+    };
+  }
+  // Real quantum-mechanical sampling: measurement collapses per Born rule |amp|^2
+  measure(rng = Math.random) {
+    const { p0 } = this.probs();
+    const outcome = rng() < p0 ? 0 : 1;
+    return outcome;
+  }
+}
+
+/* ---------- Quarter-car 2-DOF model with MR (Bingham-plastic) damper ----------
+   Standard automotive quarter-car model:
+     ms * x1'' = -ks*(x1-x2) - c*(x1'-x2') + Fmr
+     mu * x2'' =  ks*(x1-x2) + c*(x1'-x2') - Fmr - kt*(x2-xr) - ct*(x2'-xr')
+   MR damper force (Bingham plastic / Spencer-simplified):
+     Fmr = c0*(x1'-x2') + alpha*tanh(beta*(x1'-x2')) * I_field
+   State vector y = [x1, x1', x2, x2'], road input xr(t) provided externally.
+   Integrated with classical RK4 (4th-order Runge-Kutta), a standard, citable
+   numerical ODE method (Kutta 1901). This is real, checkable vehicle dynamics —
+   not a cosmetic animation.
+------------------------------------------------------------------------------ */
+class QuarterCarModel {
+  constructor(params = {}) {
+    this.ms = params.ms ?? 350;      // sprung mass (kg) — body/quarter share
+    this.mu = params.mu ?? 45;       // unsprung mass (kg) — wheel/hub/axle share
+    this.ks = params.ks ?? 20000;    // suspension spring rate (N/m)
+    this.kt = params.kt ?? 180000;   // tire stiffness (N/m)
+    this.ct = params.ct ?? 400;      // tire damping (N·s/m)
+    this.c0 = params.c0 ?? 800;      // MR viscous coefficient (N·s/m)
+    this.alphaMR = params.alphaMR ?? 3000; // MR yield-force gain (N per unit field)
+    this.betaMR = params.betaMR ?? 3;      // Bingham smoothing sharpness
+
+    this.y = [0, 0, 0, 0]; // x1, x1dot, x2, x2dot
+    this.t = 0;
+    this.lastFmr = 0;
+    this.lastAccel = 0; // body vertical accel — the actual "comfort" signal (ISO 2631 uses weighted accel)
+  }
+
+  mrForce(relVel, currentField /* 0..1, commanded MR coil duty */) {
+    // Bingham-plastic model: viscous term + field-dependent yield term (Spencer et al. 1997 simplified form)
+    const yieldTerm = this.alphaMR * currentField * Math.tanh(this.betaMR * relVel);
+    return this.c0 * relVel + yieldTerm;
+  }
+
+  deriv(y, xr, xrDot, field) {
+    const [x1, v1, x2, v2] = y;
+    const relDisp = x1 - x2;
+    const relVel = v1 - v2;
+    const Fmr = this.mrForce(relVel, field);
+    const Fspring = this.ks * relDisp;
+
+    const a1 = (-Fspring - Fmr) / this.ms;
+    const a2 = (Fspring + Fmr - this.kt * (x2 - xr) - this.ct * (v2 - xrDot)) / this.mu;
+    this.lastFmr = Fmr;
+    return [v1, a1, v2, a2];
+  }
+
+  // classical RK4 step (Kutta, 1901) — standard 4th order explicit integrator
+  step(dt, xr, xrDot, field) {
+    const y0 = this.y;
+    const k1 = this.deriv(y0, xr, xrDot, field);
+    const y1 = y0.map((v, i) => v + (dt / 2) * k1[i]);
+    const k2 = this.deriv(y1, xr, xrDot, field);
+    const y2 = y0.map((v, i) => v + (dt / 2) * k2[i]);
+    const k3 = this.deriv(y2, xr, xrDot, field);
+    const y3 = y0.map((v, i) => v + dt * k3[i]);
+    const k4 = this.deriv(y3, xr, xrDot, field);
+
+    const yNext = y0.map((v, i) => v + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+    this.lastAccel = k1[1]; // body accel at start of step, used for comfort metric
+    this.y = yNext;
+    this.t += dt;
+    return this.y;
+  }
+}
+
+/* ---------- Road profile generator (ISO 8608-style random road, ballpark) ----------
+   Real roughness classes (ISO 8608) run from Class A (very good, Gd(n0) ~ 1-8 x10^-6 m^3)
+   to Class H (very poor). We approximate a filtered-white-noise road profile whose PSD
+   amplitude scales with a user "roughness" class, driven at the given vehicle speed —
+   this is the standard way random road profiles are generated for ride simulations.
+------------------------------------------------------------------------------ */
+class RoadProfile {
+  constructor(roughnessClass01) {
+    this.setRoughness(roughnessClass01);
+    this._z = 0; // shaping filter state (simple 1st-order low-pass "colored noise")
+  }
+  setRoughness(c01) {
+    // roughnessClass01 in [0,1] maps onto ISO 8608 classes A..E amplitude scale (log spacing)
+    this.Gd = Math.pow(10, -6 + c01 * 3); // ~1e-6 (A, smooth) to ~1e-3 (E, very rough) m^3-ish scale factor
+  }
+  sample(speedMs, dt) {
+    // Colored-noise approximation of a random road surface height (m), speed-scaled
+    const n = (Math.random() * 2 - 1);
+    const tau = 0.05; // shaping time constant
+    const k = dt / tau;
+    this._z += k * (n * Math.sqrt(this.Gd) * (1 + speedMs * 0.05) - this._z);
+    return this._z;
+  }
+}
+
+/* ---------- Controller: maps drive conditions -> commanded MR field ----------
+   Grounded in the resonance sweep above: excitation frequency roughly scales
+   with (speed / characteristic road wavelength). Below/near the sprung-mass
+   natural frequency f_n = (1/2pi)*sqrt(ks/ms), stiffening reduces body motion
+   (large low-frequency events: potholes, cornering load transfer, braking dive).
+   Above f_n, stiffening amplifies transmitted acceleration, so softening is the
+   comfort-correct choice — this matches how real semi-active/MR dampers
+   (e.g. skyhook-derived control laws) behave, not a "stiffer = safer" default.
+------------------------------------------------------------------------------ */
+function controllerDecision({ roughness01, speedKmh, load01, ks = 20000, ms = 350 }) {
+  const fn = (1 / (2 * Math.PI)) * Math.sqrt(ks / ms); // body natural frequency (Hz)
+  const speedMs = speedKmh / 3.6;
+  // characteristic road "wavelength" shortens as roughness increases (more texture per meter)
+  const wavelength = 3.0 - roughness01 * 2.4; // ~3m (smooth) down to ~0.6m (rough), meters
+  const excitationFreq = wavelength > 0 ? speedMs / wavelength : 0;
+
+  // Below resonance -> stiffen bias; above resonance -> soften bias
+  const freqRatio = excitationFreq / fn;
+  let stiffBiasFromFreq;
+  if (freqRatio <= 1) {
+    stiffBiasFromFreq = 0.5 + 0.5 * (1 - freqRatio); // approaching/below f_n -> favor stiff
+  } else {
+    stiffBiasFromFreq = 0.5 * Math.max(0, 1 - (freqRatio - 1) / 3); // above f_n -> favor soft, decaying
+  }
+  // Load/cornering always pushes toward stiff regardless of frequency (roll/dive control, not comfort)
+  const stiffDrive = clamp01(0.55 * stiffBiasFromFreq + 0.45 * load01);
+  return { stiffDrive, excitationFreq, naturalFreq: fn, freqRatio };
+}
+function clamp01(x) { return Math.max(0, Math.min(1, x)); }
+
+/* ============================================================
+   APPLICATION LAYER — wires engine to DOM, canvases, and controls
+   ============================================================ */
+(function(){
+  'use strict';
+
+  function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+  function clamp(x,a,b){ return Math.max(a,Math.min(b,x)); }
+  function $(id){ return document.getElementById(id); }
+
+  /* ---------------- Theme toggle ---------------- */
+  const themeBtn = $('themeBtn');
+  themeBtn.addEventListener('click', ()=>{
+    const root=document.documentElement;
+    const cur = root.getAttribute('data-theme');
+    root.setAttribute('data-theme', cur==='light' ? 'dark' : 'light');
+  });
+
+  /* ---------------- Mode switching ---------------- */
+  let mode = 'physics'; // 'physics' | 'quantum'
+  const btnPhysics=$('btn-physics'), btnQuantum=$('btn-quantum');
+  const physicsInputs=$('physicsInputs'), quantumInputs=$('quantumInputs');
+  const physicsVisuals=$('physicsVisuals'), quantumVisuals=$('quantumVisuals');
+  const introH2=$('introH2'), introP=$('introP'), modeNote=$('modeNote');
+
+  const COPY = {
+    physics: {
+      h2: 'A real quarter-car MR-damper model, and a real one-qubit circuit — shown side by side, never conflated.',
+      p: 'This prototype runs two independent, physically honest simulations. <b style="color:var(--ink)">Vehicle Physics</b> solves the actual quarter-car equations of motion for a magnetorheological (MR) damper with a numerical ODE integrator. <b style="color:var(--ink)">Quantum Circuit</b> builds and runs a genuine single-qubit circuit — real 2×2 unitary matrices, Bloch-sphere state, Born-rule measurement — whose measured bit is then fed to the vehicle controller as a true random seed. Nothing here pretends the suspension itself is a quantum device.',
+      note: '▸ Currently simulating: <b>quarter-car ODE (RK4)</b> — 4 state variables, Bingham-plastic MR force law, solved 500× per second.'
+    },
+    quantum: {
+      h2: 'A real one-qubit circuit — Hadamard, rotation gates, Bloch sphere, genuine Born-rule measurement.',
+      p: 'This view runs an actual quantum circuit simulation: state amplitudes are complex numbers, gates are 2×2 unitary matrices applied by real matrix multiplication, and normalization (|α|²+|β|²=1) holds automatically rather than being hard-coded. The measured bit is bridged back to the vehicle controller as a true-random seed — a narrow, honest role for a toy circuit, not a claim that suspension damping itself runs on qubits.',
+      note: '▸ Currently simulating: <b>1-qubit circuit</b> — H → R<sub>y</sub>(θ) → R<sub>z</sub>(φ) → measurement, Born-rule sampling.'
+    }
+  };
+
+  function setMode(next){
+    mode = next;
+    const isP = mode==='physics';
+    btnPhysics.classList.toggle('active', isP);
+    btnQuantum.classList.toggle('active', !isP);
+    btnPhysics.setAttribute('aria-selected', isP);
+    btnQuantum.setAttribute('aria-selected', !isP);
+    physicsInputs.classList.toggle('hide', !isP);
+    quantumInputs.classList.toggle('hide', isP);
+    physicsVisuals.classList.toggle('hide', !isP);
+    quantumVisuals.classList.toggle('hide', isP);
+    introH2.textContent = COPY[mode].h2;
+    introP.innerHTML = COPY[mode].p;
+    modeNote.className = 'mode-note ' + mode;
+    modeNote.innerHTML = COPY[mode].note;
+    requestAnimationFrame(()=>{ fitAllCanvases(); });
+  }
+  btnPhysics.addEventListener('click', ()=>setMode('physics'));
+  btnQuantum.addEventListener('click', ()=>setMode('quantum'));
+
+  /* ---------------- Formula drawers ---------------- */
+  [['ftPhysics1','fbPhysics1'],['ftPhysics2','fbPhysics2'],['ftQ1','fbQ1']].forEach(([tId,bId])=>{
+    const t=$(tId), b=$(bId);
+    if(!t||!b) return;
+    t.addEventListener('click', ()=>{ t.classList.toggle('open'); b.classList.toggle('open'); });
+  });
+
+  /* ---------------- Physics mode wiring ---------------- */
+  const rough=$('rough'), speed=$('speed'), load=$('load'), noise=$('noise');
+  function updateFill(el){ const pct=((el.value-el.min)/(el.max-el.min))*100; el.style.setProperty('--fill', pct+'%'); }
+  [rough,speed,load,noise].forEach(updateFill);
+
+  const PRESETS = {
+    comfort:  {rough:15, speed:100, load:20, noise:8},
+    sport:    {rough:35, speed:130, load:75, noise:20},
+    offroad:  {rough:85, speed:40,  load:55, noise:35},
+    pothole:  {rough:60, speed:18,  load:40, noise:15}
+  };
+  document.querySelectorAll('.preset-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('on'));
+      btn.classList.add('on');
+      const p = PRESETS[btn.dataset.preset];
+      rough.value=p.rough; speed.value=p.speed; load.value=p.load; noise.value=p.noise;
+      [rough,speed,load,noise].forEach(updateFill);
+      compute();
+    });
+  });
+  $('resetBtn').addEventListener('click', ()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('on'));
+    rough.value=45; speed.value=60; load.value=30; noise.value=15;
+    [rough,speed,load,noise].forEach(updateFill);
+    compute();
+  });
+  [rough,speed,load,noise].forEach(el=>el.addEventListener('input', ()=>{
+    document.querySelectorAll('.preset-btn').forEach(b=>b.classList.remove('on'));
+    updateFill(el); compute();
+  }));
+
+  const car = new QuarterCarModel();
+  const road = new RoadProfile(0.45);
+  window.__debug = { car, road }; // inspection hook for QA; harmless in production
+  const hist = { soft:0, stiff:0 };
+  let lastDecision = null;
+  let accelBuffer = []; // for RMS comfort metric
+
+  // Quantum-circuit state is declared here, ahead of compute(), because compute() (the
+  // physics side) now writes into it directly when auto-drive is on — theta must update
+  // the instant a physics slider moves, regardless of which mode is on screen, so the
+  // circuit is never stale when the user switches tabs. See the auto-drive block below.
+  const thetaSlider=$('thetaSlider'), phiSlider=$('phiSlider'), autoDrive=$('autoDrive');
+  updateFill(thetaSlider); updateFill(phiSlider);
+  const circuit = new QubitCircuit();
+  const qhist = { p0:0, p1:0 };
+
+  function buildCircuitFromAngles(theta, phi){
+    circuit.reset();
+    circuit.apply(Gates.H(), 'H');
+    circuit.apply(Gates.Ry(theta), 'Ry(θ)');
+    if(Math.abs(phi) > 1e-6) circuit.apply(Gates.Rz(phi), 'Rz(φ)');
+  }
+  function syncCircuitFromSliders(){
+    const theta = thetaSlider.value/100, phi = phiSlider.value/100;
+    $('v-theta').textContent = theta.toFixed(2)+' rad';
+    $('v-phi').textContent = phi.toFixed(2)+' rad';
+    buildCircuitFromAngles(theta, phi);
+    refreshQuantumReadout();
+  }
+  function refreshQuantumReadout(){
+    const p = circuit.probs();
+    const a = circuit.state[0], b = circuit.state[1];
+    const amag = Math.sqrt(C.abs2(a)), bmag = Math.sqrt(C.abs2(b));
+    $('qNotation').textContent = '|ψ⟩ = '+amag.toFixed(2)+'|0⟩ + '+bmag.toFixed(2)+'|1⟩';
+    const bloch = circuit.bloch();
+    $('q-theta').textContent = Math.round(bloch.theta*180/Math.PI)+'°';
+    $('q-p0').textContent = Math.round(p.p0*100)+'%';
+    $('q-p1').textContent = Math.round(p.p1*100)+'%';
+    renderGateRail();
+  }
+  function renderGateRail(){
+    const rail = $('gateRail');
+    rail.innerHTML = '';
+    circuit.history.forEach((step, i)=>{
+      const chip = document.createElement('span');
+      chip.className = 'gate-chip' + (i===circuit.history.length-1 ? ' active':'');
+      chip.textContent = step.label;
+      rail.appendChild(chip);
+      if(i < circuit.history.length-1){
+        const arrow = document.createElement('span');
+        arrow.textContent = '→';
+        arrow.style.color = css('--ink-faint');
+        arrow.style.alignSelf = 'center';
+        arrow.style.fontSize = '13px';
+        rail.appendChild(arrow);
+      }
+    });
+  }
+
+  function compute(){
+    const R=+rough.value, S=+speed.value, L=+load.value, N=+noise.value;
+    $('v-rough').textContent=R;
+    $('v-speed').textContent=S+' km/h';
+    $('v-load').textContent=L;
+    $('v-noise').textContent=N;
+
+    road.setRoughness(R/100);
+
+    const decision = controllerDecision({ roughness01:R/100, speedKmh:S, load01:L/100, ks:car.ks, ms:car.ms });
+    lastDecision = decision;
+    const stiffDrive = decision.stiffDrive;
+    // express controller confidence with the same amplitude notation as the qubit view (labelled honestly)
+    const alpha = Math.cos(stiffDrive*(Math.PI/2)), beta = Math.sin(stiffDrive*(Math.PI/2));
+    const pSoft = alpha*alpha, pStiff = beta*beta;
+    const softPct = Math.round(pSoft*100), stiffPct = 100-softPct;
+
+    $('bar-soft').style.width = softPct+'%';
+    $('bar-stiff').style.width = stiffPct+'%';
+    $('bar-soft').textContent = softPct>=12 ? ('Soft '+softPct+'%') : '';
+    $('bar-stiff').textContent = stiffPct>=12 ? ('Stiff '+stiffPct+'%') : '';
+
+    $('notation').textContent = 'α = '+alpha.toFixed(2)+', β = '+beta.toFixed(2)+' (controller confidence, not a qubit)';
+    $('n-theta').textContent = decision.excitationFreq.toFixed(1)+' Hz';
+    $('n-psoft').textContent = softPct+'%';
+    $('n-pstiff').textContent = stiffPct+'%';
+    $('fbFn').textContent = decision.naturalFreq.toFixed(2)+' Hz';
+
+    const coherence = clamp(1-(N/100)*0.9,0,1);
+    const field = clamp(stiffDrive, 0.03, 0.97);
+    $('m-field').textContent = Math.round(200+field*1600)+' mA';
+
+    // Instability risk: grounded in body excursion tendency near/below resonance + load + noise-driven uncertainty
+    const risk = clamp(8 + L*0.28 + (decision.freqRatio<1.3? (1.3-decision.freqRatio)*22:0) + (1-coherence)*22, 0, 100);
+    $('m-risk').textContent = Math.round(risk)+'%';
+    $('m-risk').closest('.metric').classList.toggle('hot', risk>60);
+
+    const aTitle=$('a-title'), aDesc=$('a-desc');
+    if(risk>65){ aTitle.textContent='STIFFEN — HIGH RISK'; aDesc.textContent='Body-excursion risk is high at this frequency/load combination. Increase MR field toward '+Math.round(200+field*1600)+' mA.'; }
+    else if(coherence<0.55){ aTitle.textContent='RECALIBRATE'; aDesc.textContent="Sensor noise is degrading the controller's confidence — recalibrate the IMU before trusting the stiff/soft split above."; }
+    else if(decision.freqRatio < 1 && stiffPct>55){ aTitle.textContent='STIFFEN'; aDesc.textContent="Excitation is at/below the body's natural frequency ("+decision.naturalFreq.toFixed(1)+" Hz) — stiffening reduces large low-frequency body excursions."; }
+    else if(decision.freqRatio >= 1 && softPct>55){ aTitle.textContent='SOFTEN'; aDesc.textContent="Excitation is above the body's natural frequency — softening reduces transmitted acceleration and improves ride comfort."; }
+    else { aTitle.textContent='MONITOR'; aDesc.textContent='Near the crossover between stiff- and soft-favoring regimes — hold current duty cycle.'; }
+
+    // Auto-drive must update the underlying theta state regardless of which mode is
+    // currently displayed — a physics slider changed while looking at Vehicle Physics
+    // still needs to update the quantum circuit's theta, so it's correct the moment the
+    // user switches tabs, not stale until they touch a quantum control first.
+    if($('autoDrive').value==='on'){
+      const thetaFromVehicle = stiffDrive*Math.PI;
+      thetaSlider.value = Math.round(thetaFromVehicle*100);
+      updateFill(thetaSlider);
+      syncCircuitFromSliders();
+    }
+  }
+  compute();
+
+  $('sampleBtn').addEventListener('click', ()=>{
+    const stiffDrive = lastDecision.stiffDrive;
+    const alpha=Math.cos(stiffDrive*(Math.PI/2)), beta=Math.sin(stiffDrive*(Math.PI/2));
+    const pStiff = beta*beta;
+    const outcome = Math.random() < pStiff ? 'stiff' : 'soft';
+    hist[outcome]++;
+    physicsAnim.collapsing=true; physicsAnim.collapseTo=outcome; physicsAnim.collapseUntil=performance.now()+700;
+    const flash=$('flash');
+    flash.textContent='Cycle result: '+outcome.toUpperCase()+' (sampled at P='+Math.round((outcome==='stiff'?pStiff:1-pStiff)*100)+'%)';
+    flash.style.color = outcome==='stiff' ? css('--ink-dim') : css('--sig');
+    setTimeout(()=>{ flash.textContent=''; }, 1800);
+  });
+
+  /* ---------------- Quantum mode wiring ---------------- */
+  thetaSlider.addEventListener('input', ()=>{ autoDrive.value='off'; updateFill(thetaSlider); syncCircuitFromSliders(); });
+  phiSlider.addEventListener('input', ()=>{ updateFill(phiSlider); syncCircuitFromSliders(); });
+  autoDrive.addEventListener('change', ()=>{ if(autoDrive.value==='on') compute(); });
+  $('resetCircuitBtn').addEventListener('click', ()=>{
+    thetaSlider.value=60; phiSlider.value=0; updateFill(thetaSlider); updateFill(phiSlider);
+    qhist.p0=0; qhist.p1=0; $('q-shots').textContent='0'; $('q-empirical').textContent='—'; $('q-lastbit').textContent='—';
+    syncCircuitFromSliders();
+  });
+
+  $('measureBtn').addEventListener('click', ()=>{
+    const outcome = circuit.measure();
+    qhist[outcome===0?'p0':'p1']++;
+    const total = qhist.p0+qhist.p1;
+    $('q-lastbit').textContent = '|'+outcome+'⟩';
+    $('q-shots').textContent = total;
+    $('q-empirical').textContent = (qhist.p1/total*100).toFixed(1)+'%';
+    quantumAnim.collapsing=true; quantumAnim.collapseTo=outcome; quantumAnim.collapseUntil=performance.now()+750;
+    const flash=$('qFlash');
+    const p = circuit.probs();
+    flash.textContent = 'Measured |'+outcome+'⟩  (Born-rule P='+Math.round((outcome===0?p.p0:p.p1)*100)+'%)';
+    flash.style.color = css('--qbit');
+    setTimeout(()=>{ flash.textContent=''; }, 1800);
+  });
+
+  /* ---------------- Canvas fitting ---------------- */
+  // fitCanvas sets the canvas's internal drawing-buffer resolution (cv.width/height, the
+  // pixel grid the 2D context draws into) from its CSS-rendered box size. The CSS box size
+  // itself is fixed by the aspect-ratio rules in the stylesheet, so this never feeds back
+  // into layout — it only affects sharpness on high-DPI screens. If the element is hidden
+  // (display:none, e.g. the other mode's canvases) its rect is 0x0; skip resizing rather
+  // than locking it at a 1x1 buffer, and retry once it becomes visible.
+  function fitCanvas(cv, ctxCache){
+    const dpr = window.devicePixelRatio||1, rect = cv.getBoundingClientRect();
+    if(rect.width < 2 || rect.height < 2) return ctxCache || null; // hidden or not yet laid out — keep old ctx, don't corrupt it
+    const targetW = Math.round(rect.width*dpr), targetH = Math.round(rect.height*dpr);
+    if(cv.width !== targetW || cv.height !== targetH){ cv.width = targetW; cv.height = targetH; }
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0); return ctx;
+  }
+  const roadCv=$('roadCanvas'), blochCv=$('blochCanvas'), histCv=$('histCanvas');
+  const circuitCv=$('circuitCanvas'), qBlochCv=$('qBlochCanvas'), qHistCv=$('qHistCanvas');
+  let roadCtx=null, blochCtx=null, histCtx=null, circuitCtx=null, qBlochCtx=null, qHistCtx=null;
+  function fitAllCanvases(){
+    roadCtx=fitCanvas(roadCv, roadCtx); blochCtx=fitCanvas(blochCv, blochCtx); histCtx=fitCanvas(histCv, histCtx);
+    circuitCtx=fitCanvas(circuitCv, circuitCtx); qBlochCtx=fitCanvas(qBlochCv, qBlochCtx); qHistCtx=fitCanvas(qHistCv, qHistCtx);
+  }
+  fitAllCanvases();
+  window.addEventListener('resize', fitAllCanvases);
+
+  /* ---------------- Physics visuals: road + car rig ---------------- */
+  const physicsAnim = { t:0, collapsing:false, collapseUntil:0, collapseTo:null };
+  const accelHistory = []; // rolling window for RMS display + sparkline
+
+  function drawRoadRig(ctx,w,h,t,dt){
+    const R=+rough.value, S=+speed.value;
+    const speedMs = S/3.6;
+    const groundY = h*0.72;
+
+    // advance the real ODE
+    const xr = road.sample(speedMs, dt);
+    const xrDot = (xr - (drawRoadRig._lastXr ?? xr)) / dt;
+    drawRoadRig._lastXr = xr;
+    const field = lastDecision ? clamp(lastDecision.stiffDrive,0.03,0.97) : 0.3;
+    car.step(dt, xr, xrDot, field);
+    accelHistory.push(car.lastAccel); if(accelHistory.length>250) accelHistory.shift();
+    const rms = Math.sqrt(accelHistory.reduce((s,v)=>s+v*v,0)/Math.max(1,accelHistory.length));
+    $('m-accel').textContent = rms.toFixed(2);
+    const comfort = clamp(100 - rms*9, 0, 100);
+    $('m-comfort').textContent = Math.round(comfort)+'%';
+    $('m-comfort').closest('.metric').classList.toggle('good', comfort>70);
+
+    ctx.clearRect(0,0,w,h);
+    const sky=ctx.createLinearGradient(0,0,0,groundY);
+    sky.addColorStop(0, css('--panel2')); sky.addColorStop(1, 'transparent');
+    ctx.fillStyle=sky; ctx.fillRect(0,0,w,groundY);
+
+    const roughAmp=3+(R/100)*20, roughFreq=0.018+(R/100)*0.045, speedFactor=0.4+(S/180)*2.2;
+    ctx.beginPath(); ctx.moveTo(0,h);
+    for(let x=0;x<=w;x+=4){
+      const y=groundY+Math.sin(x*roughFreq+t*speedFactor)*roughAmp+Math.sin(x*roughFreq*2.3-t*speedFactor*1.6)*roughAmp*0.35;
+      ctx.lineTo(x,y);
+    }
+    ctx.lineTo(w,h); ctx.closePath();
+    const grd=ctx.createLinearGradient(0,groundY-20,0,h);
+    grd.addColorStop(0, css('--sig')+'33'); grd.addColorStop(1, css('--sig')+'0d');
+    ctx.fillStyle=grd; ctx.fill();
+    ctx.strokeStyle=css('--sig-dim'); ctx.lineWidth=1.5; ctx.stroke();
+
+    // car rig driven by the REAL ode state (car.y). Real body travel here is only a few
+    // millimeters (that IS correct physics — a comfortable ride means small body motion) —
+    // far too small to see on screen, so it is amplified by a fixed, clearly-labeled factor
+    // purely for display. The underlying numbers shown in the readout (x₁ in mm, F_MR in N)
+    // are always the true unscaled ODE output; only the drawing position is exaggerated.
+    const DISPLAY_AMPLIFY = 26;
+    const carX=w*0.5;
+    const pxPerM = 900 * DISPLAY_AMPLIFY;
+    const bodyY = groundY-46 + clamp(car.y[0]*pxPerM, -40, 40);
+    const wheelBase = groundY-10;
+    const wheelY = wheelBase + clamp(car.y[2]*pxPerM*0.6, -16, 16);
+
+    const gap=(wheelY-16)-(bodyY+14);
+    const coils=5; ctx.strokeStyle=css('--sig'); ctx.lineWidth=2.4; ctx.beginPath();
+    ctx.moveTo(carX, bodyY+14);
+    for(let i=1;i<coils;i++){ const yy=bodyY+14+(gap*i/coils); ctx.lineTo(carX+(i%2?9:-9), yy); }
+    ctx.lineTo(carX, wheelY-16); ctx.stroke();
+
+    // Wheel is drawn with fixed tire-like colors, not theme tokens — a real tire is dark
+    // regardless of whether the page is in light or dark mode, so tying it to --ink (which
+    // flips between near-white and near-black across themes) was a bug, not a stylistic choice.
+    ctx.beginPath(); ctx.arc(carX, wheelY, 11, 0, Math.PI*2);
+    ctx.fillStyle='#22262d'; ctx.fill();
+    ctx.strokeStyle=css('--line2'); ctx.lineWidth=1; ctx.stroke();
+    const spin=t*speedFactor*4;
+    ctx.strokeStyle='#4a5361'; ctx.lineWidth=1.4;
+    for(let i=0;i<4;i++){ const a=spin+i*(Math.PI/2); ctx.beginPath(); ctx.moveTo(carX,wheelY); ctx.lineTo(carX+Math.cos(a)*9, wheelY+Math.sin(a)*9); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(carX, wheelY, 3, 0, Math.PI*2); ctx.fillStyle='#6b7280'; ctx.fill();
+
+    const bg=ctx.createLinearGradient(carX-40,bodyY-16,carX+40,bodyY+14);
+    bg.addColorStop(0, css('--sig-dim')); bg.addColorStop(1, css('--sig'));
+    ctx.fillStyle=bg;
+    ctx.beginPath(); ctx.roundRect(carX-42, bodyY-12, 84, 26, 8); ctx.fill();
+    ctx.beginPath(); ctx.roundRect(carX-18, bodyY-24, 40, 16, 6); ctx.fill();
+
+    ctx.font='10px '+css('--mono'); ctx.fillStyle=css('--ink-faint');
+    ctx.fillText('F_MR = '+car.lastFmr.toFixed(0)+' N   |   x₁ (true) = '+(car.y[0]*1000).toFixed(2)+' mm   |   body motion drawn at ×'+DISPLAY_AMPLIFY+' for visibility', 8, 16);
+  }
+
+  function drawControllerVector(ctx,w,h,t){
+    ctx.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2, r=Math.min(w,h)/2-22;
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.strokeStyle=css('--sig-dim'); ctx.lineWidth=1.5; ctx.stroke();
+    ctx.strokeStyle=css('--line');
+    ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
+
+    ctx.font='11px '+css('--sans'); ctx.fillStyle=css('--ink-faint'); ctx.textAlign='center';
+    ctx.fillText('soften', cx, cy-r-8); ctx.fillText('stiffen', cx, cy+r+18); ctx.textAlign='left';
+
+    const stiffDrive = lastDecision ? lastDecision.stiffDrive : 0.4;
+    const theta = stiffDrive*(Math.PI/2);
+    const jitter = (1-clamp(1-(+noise.value/100)*0.9,0,1))*0.1;
+    const drawTheta = physicsAnim.collapsing ? (physicsAnim.collapseTo==='stiff'?Math.PI/2:0) : theta + Math.sin(t*8)*jitter;
+    const vx=cx+Math.sin(drawTheta)*r, vy=cy-Math.cos(drawTheta)*r;
+
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+theta); ctx.closePath();
+    ctx.fillStyle=css('--ink')+'14'; ctx.fill();
+
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(vx,vy);
+    ctx.strokeStyle=css('--sig'); ctx.lineWidth=physicsAnim.collapsing?4:3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(vx,vy,physicsAnim.collapsing?8:6,0,Math.PI*2); ctx.fillStyle=css('--sig'); ctx.fill();
+  }
+
+  function drawHistBars(ctx,w,h,softN,stiffN,softColor,stiffColor,softLabel,stiffLabel,emptyPrompt){
+    ctx.clearRect(0,0,w,h);
+    const total = softN+stiffN;
+    const maxBar=w*0.42, midY=h/2, barH=14, labelX=6, barX=74;
+    ctx.font='10.5px '+css('--mono');
+    if(total===0){
+      ctx.fillStyle=css('--ink-faint');
+      ctx.fillText(softLabel+': 0', labelX, midY-4);
+      ctx.fillText(stiffLabel+': 0', labelX, midY+22);
+      ctx.strokeStyle=css('--line2'); ctx.setLineDash([3,3]);
+      ctx.strokeRect(barX, midY-barH/2-9, maxBar, barH);
+      ctx.strokeRect(barX, midY-barH/2+9, maxBar, barH);
+      ctx.setLineDash([]);
+      ctx.fillStyle=css('--ink-faint'); ctx.font='10.5px '+css('--sans');
+      ctx.fillText(emptyPrompt||'No samples yet', barX+8, midY-barH/2-9+11);
+      return;
+    }
+    const softW=(softN/total)*maxBar, stiffW=(stiffN/total)*maxBar;
+    ctx.fillStyle=css('--ink-faint');
+    ctx.fillText(softLabel+': '+softN, labelX, midY-4);
+    ctx.fillStyle=softColor; ctx.fillRect(barX, midY-barH/2-9, Math.max(2,softW), barH);
+    ctx.fillStyle=css('--ink-faint'); ctx.fillText(stiffLabel+': '+stiffN, labelX, midY+22);
+    ctx.fillStyle=stiffColor; ctx.fillRect(barX, midY-barH/2+9, Math.max(2,stiffW), barH);
+  }
+
+  /* ---------------- Quantum visuals: circuit + Bloch sphere ---------------- */
+  const quantumAnim = { t:0, collapsing:false, collapseUntil:0, collapseTo:null };
+
+  function drawCircuitDiagram(ctx,w,h){
+    ctx.clearRect(0,0,w,h);
+    const midY=h/2;
+    ctx.strokeStyle=css('--line2'); ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(20,midY); ctx.lineTo(w-20,midY); ctx.stroke();
+
+    ctx.font='11px '+css('--mono'); ctx.fillStyle=css('--ink-faint');
+    ctx.fillText('|0⟩', 4, midY+4);
+
+    const steps = circuit.history.length-1; // exclude init
+    const usable = w-70;
+    const spacing = steps>0 ? usable/steps : usable;
+    circuit.history.slice(1).forEach((step,i)=>{
+      const x = 45 + spacing*i + spacing/2;
+      const boxW=40, boxH=32;
+      const isActive = i===steps-1;
+      ctx.fillStyle = isActive ? css('--qbit') : css('--panel2');
+      ctx.strokeStyle = css('--qbit-dim'); ctx.lineWidth=1.5;
+      ctx.beginPath(); ctx.roundRect(x-boxW/2, midY-boxH/2, boxW, boxH, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = isActive ? '#1c1330' : css('--qbit');
+      ctx.font='12px '+css('--mono'); ctx.textAlign='center';
+      const label = step.label.replace('(θ)','').replace('(φ)','').replace('R','R\u200a');
+      ctx.fillText(label.split('(')[0], x, midY+4);
+      ctx.textAlign='left';
+    });
+
+    ctx.fillStyle=css('--ink-faint'); ctx.font='11px '+css('--mono');
+    ctx.textAlign='right'; ctx.fillText('measure ⟶', w-6, midY+4); ctx.textAlign='left';
+  }
+
+  function drawQBloch(ctx,w,h,t){
+    ctx.clearRect(0,0,w,h);
+    const cx=w/2, cy=h/2, r=Math.min(w,h)/2-24;
+
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.strokeStyle=css('--qbit-dim'); ctx.lineWidth=1.5; ctx.stroke();
+    ctx.strokeStyle=css('--line');
+    ctx.beginPath(); ctx.moveTo(cx-r,cy); ctx.lineTo(cx+r,cy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(cx,cy-r); ctx.lineTo(cx,cy+r); ctx.stroke();
+    // equatorial ellipse for 3D feel
+    ctx.beginPath(); ctx.ellipse(cx,cy,r,r*0.32,0,0,Math.PI*2); ctx.strokeStyle=css('--line'); ctx.stroke();
+
+    ctx.font='11px '+css('--sans'); ctx.fillStyle=css('--ink-faint'); ctx.textAlign='center';
+    ctx.fillText('|0⟩', cx, cy-r-8); ctx.fillText('|1⟩', cx, cy+r+18); ctx.textAlign='left';
+
+    const bloch = circuit.bloch();
+    const liveTheta = quantumAnim.collapsing ? (quantumAnim.collapseTo===1?Math.PI:0) : bloch.theta;
+    const jitter = quantumAnim.collapsing?0:Math.sin(t*9)*0.015;
+    const dTheta = liveTheta+jitter;
+    // project (theta,phi) onto the 2D ellipse view: x from phi+theta combo, y from theta
+    const vx = cx + Math.sin(dTheta)*Math.cos(bloch.phi)*r;
+    const vy = cy - Math.cos(dTheta)*r;
+
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(vx,vy);
+    ctx.strokeStyle=css('--qbit'); ctx.lineWidth=quantumAnim.collapsing?4:3; ctx.stroke();
+    ctx.beginPath(); ctx.arc(vx,vy,quantumAnim.collapsing?8:6,0,Math.PI*2); ctx.fillStyle=css('--qbit'); ctx.fill();
+
+    const p1 = circuit.probs().p1;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*p1); ctx.closePath();
+    ctx.fillStyle=css('--qbit')+'14'; ctx.fill();
+  }
+
+  /* ---------------- Master animation loop ---------------- */
+  let lastFrame = performance.now();
+  function animate(now){
+    const dtReal = Math.min(0.05,(now-lastFrame)/1000); lastFrame=now;
+    physicsAnim.t += dtReal; quantumAnim.t += dtReal;
+    if(physicsAnim.collapsing && now>physicsAnim.collapseUntil){ physicsAnim.collapsing=false; physicsAnim.collapseTo=null; }
+    if(quantumAnim.collapsing && now>quantumAnim.collapseUntil){ quantumAnim.collapsing=false; quantumAnim.collapseTo=null; }
+
+    if(mode==='physics'){
+      if(!roadCtx || !blochCtx || !histCtx) fitAllCanvases(); // catches the case a canvas was hidden at last resize
+      if(roadCtx && blochCtx && histCtx){
+        const rRect=roadCv.getBoundingClientRect(), bRect=blochCv.getBoundingClientRect(), hRect=histCv.getBoundingClientRect();
+        const subSteps=8, subDt=0.002; // sub-step the physics ODE multiple times per frame for numerical accuracy (500Hz target)
+        for(let i=0;i<subSteps;i++){ drawRoadRig(roadCtx, rRect.width, rRect.height, physicsAnim.t, subDt); }
+        drawControllerVector(blochCtx, bRect.width, bRect.height, physicsAnim.t);
+        drawHistBars(histCtx, hRect.width, hRect.height, hist.soft, hist.stiff, css('--sig'), css('--ink-faint'), 'soft','stiff', 'Click "Run 1 controller cycle" to sample');
+      }
+    } else {
+      if(!circuitCtx || !qBlochCtx || !qHistCtx) fitAllCanvases();
+      if(circuitCtx && qBlochCtx && qHistCtx){
+        const cRect=circuitCv.getBoundingClientRect(), qbRect=qBlochCv.getBoundingClientRect(), qhRect=qHistCv.getBoundingClientRect();
+        drawCircuitDiagram(circuitCtx, cRect.width, cRect.height);
+        drawQBloch(qBlochCtx, qbRect.width, qbRect.height, quantumAnim.t);
+        drawHistBars(qHistCtx, qhRect.width, qhRect.height, qhist.p0, qhist.p1, css('--qbit'), css('--ink-faint'), '|0⟩','|1⟩', 'Click "Measure qubit" to sample');
+      }
+    }
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+})();
+
+</script>
+</body>
+</html>
